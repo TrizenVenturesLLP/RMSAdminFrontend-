@@ -16,8 +16,19 @@ COPY . .
 # Copy production environment
 COPY env.production .env.production
 
+# Set production environment
+ENV NODE_ENV=production
+ENV VITE_API_BASE_URL=https://rmsadminbackend.llp.trizenventures.com/api/v1
+ENV VITE_APP_NAME="Riders Moto Shop Admin"
+ENV VITE_APP_VERSION=1.0.0
+ENV VITE_ENVIRONMENT=production
+
 # Build the application for production
 RUN npm run build
+
+# Verify build output
+RUN ls -la dist/
+RUN echo "Build contents:" && find dist/ -type f -exec ls -la {} \;
 
 # Production stage with Nginx
 FROM nginx:alpine
@@ -27,6 +38,13 @@ RUN apk add --no-cache curl
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Remove default nginx page
+RUN rm -f /usr/share/nginx/html/index.html.bak /usr/share/nginx/html/50x.html
+
+# Verify files are copied correctly
+RUN ls -la /usr/share/nginx/html/
+RUN echo "Checking for index.html:" && ls -la /usr/share/nginx/html/index.html
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf

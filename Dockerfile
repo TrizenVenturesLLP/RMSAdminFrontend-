@@ -18,7 +18,7 @@ COPY env.production .env.production
 
 # Set production environment
 ENV NODE_ENV=production
-ENV VITE_API_BASE_URL=https://rmsadminbackend.llp.trizenventures.com/api/v1
+ENV VITE_API_URL=https://rmsadminbackend.llp.trizenventures.com/api/v1
 ENV VITE_APP_NAME="Riders Moto Shop Admin"
 ENV VITE_APP_VERSION=1.0.0
 ENV VITE_ENVIRONMENT=production

@@ -69,7 +69,7 @@ npm run build:prod
 The application uses these environment variables:
 
 ```env
-VITE_API_BASE_URL=https://rmsadminbackend.llp.trizenventures.com/api/v1
+VITE_API_URL=https://rmsadminbackend.llp.trizenventures.com/api/v1
 VITE_APP_NAME=Riders Moto Shop Admin
 VITE_APP_VERSION=1.0.0
 VITE_ENVIRONMENT=production

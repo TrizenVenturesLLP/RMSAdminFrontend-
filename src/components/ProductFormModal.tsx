@@ -48,6 +48,7 @@ const productSchema = z.object({
   }).optional(),
   categoryId: z.string().optional(),
   brandId: z.string().optional(),
+  compatibleModels: z.array(z.string()).optional(),
   isActive: z.boolean().default(true),
   isDigital: z.boolean().default(false),
   isFeatured: z.boolean().default(false),
@@ -80,6 +81,7 @@ interface ProductFormModalProps {
     };
     categoryId: string;
     brandId: string;
+    compatibleModels?: string[];
     isActive: boolean;
     isDigital: boolean;
     isFeatured: boolean;
@@ -95,9 +97,11 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [compatibleModels, setCompatibleModels] = useState<string[]>([]);
+  const [modelInput, setModelInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { createProduct, updateProduct, uploadProductImages } = useProductAPI();
+  const { createProduct, updateProduct, uploadProductImages, deleteProductImage } = useProductAPI();
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const { data: brands, isLoading: brandsLoading } = useBrands();
 
@@ -123,6 +127,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
       },
       categoryId: "",
       brandId: "",
+      compatibleModels: [],
       isActive: true,
       isDigital: false,
       isFeatured: false,
@@ -149,6 +154,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
         dimensions: product.dimensions || {},
         categoryId: product.categoryId || "",
         brandId: product.brandId || "",
+        compatibleModels: product.compatibleModels || [],
         isActive: product.isActive ?? true,
         isDigital: product.isDigital ?? false,
         isFeatured: product.isFeatured ?? false,
@@ -157,6 +163,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
         tags: product.tags || [],
       });
       setTags(product.tags || []);
+      setCompatibleModels(product.compatibleModels || []);
     }
   }, [product, isOpen, form]);
 
@@ -188,6 +195,20 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
     setPreviewImages(newPreviews);
   };
 
+  const handleDeleteExistingImage = async (imageId: string) => {
+    if (!product?.id) return;
+    
+    if (window.confirm("Are you sure you want to delete this image?")) {
+      try {
+        await deleteProductImage({ productId: product.id, imageId });
+        // Refresh the product data to show updated images
+        onSuccess?.();
+      } catch (error) {
+        // Error is handled by the hook
+      }
+    }
+  };
+
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
       const newTags = [...tags, tagInput.trim()];
@@ -201,6 +222,21 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
     const newTags = tags.filter(tag => tag !== tagToRemove);
     setTags(newTags);
     form.setValue("tags", newTags);
+  };
+
+  const addModel = () => {
+    if (modelInput.trim() && !compatibleModels.includes(modelInput.trim())) {
+      const newModels = [...compatibleModels, modelInput.trim()];
+      setCompatibleModels(newModels);
+      setModelInput("");
+      form.setValue("compatibleModels", newModels);
+    }
+  };
+
+  const removeModel = (modelToRemove: string) => {
+    const newModels = compatibleModels.filter(model => model !== modelToRemove);
+    setCompatibleModels(newModels);
+    form.setValue("compatibleModels", newModels);
   };
 
   const onSubmit = async (data: ProductFormData) => {
@@ -251,6 +287,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
       setImages([]);
       setPreviewImages([]);
       setTags([]);
+      setCompatibleModels([]);
       
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "An error occurred while saving the product.";
@@ -481,6 +518,49 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
             </CardContent>
           </Card>
 
+          {/* Compatible Models */}
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-medium mb-4">Compatible Models (Optional)</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Add bike models that this product is compatible with (e.g., "AEROX 155", "MT 15", "R15 V4")
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={modelInput}
+                    onChange={(e) => setModelInput(e.target.value)}
+                    placeholder="Add a bike model (e.g., AEROX 155)"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addModel())}
+                  />
+                  <Button type="button" onClick={addModel} disabled={!modelInput.trim()}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {compatibleModels.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {compatibleModels.map((model, index) => (
+                      <Badge key={index} variant="secondary" className="gap-1">
+                        {model}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 ml-1"
+                          onClick={() => removeModel(model)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Physical Properties */}
           <Card>
             <CardContent className="pt-6">
@@ -543,51 +623,87 @@ export function ProductFormModal({ isOpen, onClose, product, onSuccess }: Produc
               <h3 className="text-lg font-medium mb-4">Product Images</h3>
               
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    id="images"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="gap-2"
-                    onClick={() => document.getElementById('images')?.click()}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Images
-                  </Button>
-                  <p className="text-sm text-muted-foreground">
-                    Upload up to 5 images (JPG, PNG, WebP, GIF)
-                  </p>
-                </div>
-
-                {previewImages.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {previewImages.map((preview, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={preview}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeImage(index)}
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
+                {/* Existing Images */}
+                {isEditing && product?.images && product.images.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">Current Images</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {product.images.map((image) => (
+                        <div key={image.id} className="relative group">
+                          <img
+                            src={image.url}
+                            alt={image.altText || product.name}
+                            className="w-full h-24 object-cover rounded-lg border"
+                          />
+                          {image.isPrimary && (
+                            <div className="absolute top-1 left-1 bg-blue-600 text-white text-xs px-1 py-0.5 rounded">
+                              Primary
+                            </div>
+                          )}
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleDeleteExistingImage(image.id)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Upload New Images */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">Upload New Images</h4>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      id="images"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={() => document.getElementById('images')?.click()}
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Images
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Upload up to 5 images (JPG, PNG, WebP, GIF)
+                    </p>
+                  </div>
+
+                  {previewImages.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {previewImages.map((preview, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={preview}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeImage(index)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

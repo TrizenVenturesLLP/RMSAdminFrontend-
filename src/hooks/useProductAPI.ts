@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://rmsadminbackend.llp.trizenventures.com/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
 // Types
 interface Product {
@@ -368,6 +368,22 @@ const uploadProductImagesAPI = async (productId: string, files: File[]): Promise
   }
 };
 
+const deleteProductImageAPI = async (productId: string, imageId: string): Promise<void> => {
+  const token = localStorage.getItem('token');
+  
+  const response = await fetch(`${API_BASE_URL}/products/${productId}/images/${imageId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete image');
+  }
+};
+
 // React Query Hooks
 export const useProducts = (params: Parameters<typeof fetchProducts>[0] = {}) => {
   return useQuery({
@@ -462,14 +478,35 @@ export const useProductAPI = () => {
     },
   });
 
+  const deleteImageMutation = useMutation({
+    mutationFn: ({ productId, imageId }: { productId: string; imageId: string }) =>
+      deleteProductImageAPI(productId, imageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast({
+        title: 'Success',
+        description: 'Image deleted successfully.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   return {
     createProduct: createProductMutation.mutateAsync,
     updateProduct: updateProductMutation.mutateAsync,
     deleteProduct: deleteProductMutation.mutateAsync,
     uploadProductImages: uploadImagesMutation.mutateAsync,
+    deleteProductImage: deleteImageMutation.mutateAsync,
     isCreating: createProductMutation.isPending,
     isUpdating: updateProductMutation.isPending,
     isDeleting: deleteProductMutation.isPending,
     isUploading: uploadImagesMutation.isPending,
+    isDeletingImage: deleteImageMutation.isPending,
   };
 };
